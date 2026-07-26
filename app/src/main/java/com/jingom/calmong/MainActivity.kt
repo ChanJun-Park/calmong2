@@ -29,7 +29,7 @@ class MainActivity : ComponentActivity() {
                             .fillMaxSize()
                             .systemBarsPadding(),
                 ) {
-                    val items = remember { List(100) { it.toString() } }
+                    val items = remember { List(31) { it.toString() } }
                     var centerItemIndex by remember { mutableIntStateOf(0) }
                     Text(
                         text = "center item : ${items[centerItemIndex.coerceIn(0, items.lastIndex)]}",

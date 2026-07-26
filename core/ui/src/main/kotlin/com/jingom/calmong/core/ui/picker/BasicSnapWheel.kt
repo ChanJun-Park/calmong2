@@ -17,13 +17,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListLayoutInfo
 import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.State
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -50,12 +47,19 @@ fun BasicSnapWheel(
     itemHeight: Dp = 40.dp,
     onCenterItemIndexChange: (Int) -> Unit = {},
 ) {
-    val state = rememberLazyListState()
+    val itemSize = items.size
+    require(itemSize > 0) {
+        "1개 이상의 요소를 갖는 items 리스트를 사용해야 합니다."
+    }
+
+    val state =
+        rememberLazyListState(
+            initialFirstVisibleItemIndex = LARGE_NUMBER_OF_ITEMS / 2 - ((LARGE_NUMBER_OF_ITEMS / 2) % itemSize),
+        )
     val itemPaddingVertical = 8.dp
     val itemHeightWithPadding = itemHeight + itemPaddingVertical * 2
     val wheelHeight = itemHeightWithPadding * visibleItemCount
     val verticalContentPadding = (wheelHeight - itemHeightWithPadding) / 2
-//    val centerItemIndex by rememberCenterItemIndex(state)
 
     LazyColumn(
         state = state,
@@ -65,8 +69,9 @@ fun BasicSnapWheel(
         modifier = modifier.basicSnapWheelModifier(wheelHeight, itemHeightWithPadding, visibleItemCount),
     ) {
         items(
-            items = items,
-        ) {
+            count = LARGE_NUMBER_OF_ITEMS,
+        ) { index ->
+            val itemIndex = index % itemSize
             Box(
                 contentAlignment = Alignment.Center,
                 modifier =
@@ -76,19 +81,15 @@ fun BasicSnapWheel(
                         .fillMaxWidth(),
             ) {
                 Text(
-                    text = it,
+                    text = items[itemIndex],
                 )
             }
         }
     }
 
     val updatedOnCenterItemIndexChange by rememberUpdatedState(onCenterItemIndexChange)
-//    LaunchedEffect(centerItemIndex) {
-//        updatedOnCenterItemIndexChange(centerItemIndex)
-//    }
-
-    LaunchedEffect(state) {
-        snapshotFlow { calculateCenterIndex(state.layoutInfo) }
+    LaunchedEffect(state, items) {
+        snapshotFlow { calculateCenterIndex(state.layoutInfo, itemSize) }
             .distinctUntilChanged()
             .collect(updatedOnCenterItemIndexChange)
     }
@@ -142,22 +143,20 @@ private fun rememberCustomSnapFlingBehavior(lazyListState: LazyListState): Targe
     }
 }
 
-@Composable
-private fun rememberCenterItemIndex(state: LazyListState): State<Int> =
-    remember(state) {
-        derivedStateOf {
-            calculateCenterIndex(state.layoutInfo)
-        }
-    }
-
-private fun calculateCenterIndex(layoutInfo: LazyListLayoutInfo): Int {
+private fun calculateCenterIndex(
+    layoutInfo: LazyListLayoutInfo,
+    itemsSize: Int,
+): Int {
     val viewPortCenterOffset = layoutInfo.viewportSize.height.toFloat() / 2 + layoutInfo.viewportStartOffset
-    return layoutInfo
-        .visibleItemsInfo
-        .minByOrNull {
-            val itemCenterOffset = it.offset + it.size / 2
-            abs(itemCenterOffset - viewPortCenterOffset)
-        }?.index ?: 0
+    val centerIndex =
+        layoutInfo
+            .visibleItemsInfo
+            .minByOrNull {
+                val itemCenterOffset = it.offset + it.size / 2
+                abs(itemCenterOffset - viewPortCenterOffset)
+            }?.index ?: 0
+
+    return centerIndex % itemsSize
 }
 
 @Preview(showBackground = true)
@@ -170,3 +169,5 @@ private fun BasicSnapWheelPreview() {
         )
     }
 }
+
+private const val LARGE_NUMBER_OF_ITEMS = 100_000
