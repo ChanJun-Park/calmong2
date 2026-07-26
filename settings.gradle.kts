@@ -27,3 +27,4 @@ rootProject.name = "calmong"
 include(":app")
 include(":core:designsystem")
 include(":core:datetime")
+include(":core:ui")

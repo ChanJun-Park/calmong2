@@ -19,12 +19,14 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
+            signingConfig = signingConfigs.getByName("debug")
         }
     }
 }
 
 dependencies {
     implementation(project(":core:designsystem"))
+    implementation(project(":core:ui"))
 
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.compose.material3)

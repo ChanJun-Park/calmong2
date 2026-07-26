@@ -100,3 +100,12 @@ desktop.ini
 # 인증키는 절대 커밋하지 않는다. kasi.properties.example을 복사해 채운다.
 core/datetime/kasi.properties
 core/datetime/build/kasi-cache/
+
+# sample code
+trunk/
+
+# compose ruleset
+ktlint-compose-0.6.3-all.jar
+
+# reference
+reference/
