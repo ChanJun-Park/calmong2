@@ -6,7 +6,6 @@ import androidx.compose.animation.core.exponentialDecay
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.rememberSplineBasedDecay
 import androidx.compose.foundation.gestures.TargetedFlingBehavior
-import androidx.compose.foundation.gestures.snapping.SnapLayoutInfoProvider
 import androidx.compose.foundation.gestures.snapping.SnapPosition
 import androidx.compose.foundation.gestures.snapping.snapFlingBehavior
 import androidx.compose.foundation.layout.Box
@@ -126,7 +125,7 @@ private fun Modifier.basicSnapWheelModifier(
 
 @Composable
 private fun rememberCustomSnapFlingBehavior(lazyListState: LazyListState): TargetedFlingBehavior {
-    val snappingLayout = remember(lazyListState) { SnapLayoutInfoProvider(lazyListState, SnapPosition.Center) }
+    val snappingLayout = remember(lazyListState) { CustomSnapLayoutInfoProvider(lazyListState, SnapPosition.Center) }
     val density = LocalDensity.current
     val highVelocityApproachSpec: DecayAnimationSpec<Float> = rememberSplineBasedDecay()
 
