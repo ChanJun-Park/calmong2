@@ -1,29 +1,35 @@
 package com.jingom.calmong.core.ui.picker
 
+import androidx.annotation.IntRange
 import androidx.compose.animation.core.DecayAnimationSpec
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.exponentialDecay
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.rememberSplineBasedDecay
+import androidx.compose.foundation.MutatePriority
+import androidx.compose.foundation.gestures.ScrollScope
+import androidx.compose.foundation.gestures.ScrollableState
 import androidx.compose.foundation.gestures.TargetedFlingBehavior
 import androidx.compose.foundation.gestures.snapping.SnapPosition
 import androidx.compose.foundation.gestures.snapping.snapFlingBehavior
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyListLayoutInfo
 import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.saveable.Saver
+import androidx.compose.runtime.saveable.listSaver
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
@@ -35,42 +41,31 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.jingom.calmong.core.designsystem.theme.CalMongTheme
-import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlin.math.abs
 
 @Composable
 fun BasicSnapWheel(
-    items: List<String>,
+    state: WheelPickerState,
     modifier: Modifier = Modifier,
     visibleItemCount: Int = 5, // 한 화면에 몇 개가 보일지 (android-wheel의 DEF_VISIBLE_ITEMS와 같은 개념)
     itemHeight: Dp = 40.dp,
-    onCenterItemIndexChange: (Int) -> Unit = {},
+    optionContent: @Composable BoxScope.(optionIndex: Int) -> Unit,
 ) {
-    val itemSize = items.size
-    require(itemSize > 0) {
-        "1개 이상의 요소를 갖는 items 리스트를 사용해야 합니다."
-    }
-
-    val state =
-        rememberLazyListState(
-            initialFirstVisibleItemIndex = LARGE_NUMBER_OF_ITEMS / 2 - ((LARGE_NUMBER_OF_ITEMS / 2) % itemSize),
-        )
     val itemPaddingVertical = 8.dp
     val itemHeightWithPadding = itemHeight + itemPaddingVertical * 2
     val wheelHeight = itemHeightWithPadding * visibleItemCount
     val verticalContentPadding = (wheelHeight - itemHeightWithPadding) / 2
 
     LazyColumn(
-        state = state,
-        flingBehavior = rememberCustomSnapFlingBehavior(state),
+        state = state.lazyListState,
+        flingBehavior = rememberCustomSnapFlingBehavior(state.lazyListState),
         contentPadding = PaddingValues(vertical = verticalContentPadding),
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = modifier.basicSnapWheelModifier(wheelHeight, itemHeightWithPadding, visibleItemCount),
     ) {
         items(
-            count = LARGE_NUMBER_OF_ITEMS,
+            count = state.numberOfItems,
         ) { index ->
-            val itemIndex = index % itemSize
             Box(
                 contentAlignment = Alignment.Center,
                 modifier =
@@ -79,18 +74,10 @@ fun BasicSnapWheel(
                         .height(itemHeight)
                         .fillMaxWidth(),
             ) {
-                Text(
-                    text = items[itemIndex],
-                )
+                val optionIndex = (index + state.optionsOffset) % state.numberOfOptions
+                optionContent(optionIndex)
             }
         }
-    }
-
-    val updatedOnCenterItemIndexChange by rememberUpdatedState(onCenterItemIndexChange)
-    LaunchedEffect(state, items) {
-        snapshotFlow { calculateCenterIndex(state.layoutInfo, itemSize) }
-            .distinctUntilChanged()
-            .collect(updatedOnCenterItemIndexChange)
     }
 }
 
@@ -142,10 +129,7 @@ private fun rememberCustomSnapFlingBehavior(lazyListState: LazyListState): Targe
     }
 }
 
-private fun calculateCenterIndex(
-    layoutInfo: LazyListLayoutInfo,
-    itemsSize: Int,
-): Int {
+private fun LazyListState.centerItemIndex(): Int {
     val viewPortCenterOffset = layoutInfo.viewportSize.height.toFloat() / 2 + layoutInfo.viewportStartOffset
     val centerIndex =
         layoutInfo
@@ -155,16 +139,139 @@ private fun calculateCenterIndex(
                 abs(itemCenterOffset - viewPortCenterOffset)
             }?.index ?: 0
 
-    return centerIndex % itemsSize
+    return centerIndex
+}
+
+@Composable
+fun rememberWheelPickerState(
+    initialNumberOfOptions: Int,
+    initiallySelectedOption: Int = 0,
+): WheelPickerState =
+    rememberSaveable(
+        inputs = arrayOf(initialNumberOfOptions, initiallySelectedOption),
+        saver = WheelPickerState.Saver,
+    ) {
+        WheelPickerState(initialNumberOfOptions, initiallySelectedOption)
+    }
+
+@Stable
+class WheelPickerState(
+    @IntRange(from = 1)
+    initialNumberOfOptions: Int,
+    initiallySelectedOption: Int = 0,
+) : ScrollableState {
+    init {
+        verifyNumberOfOptions(initialNumberOfOptions)
+    }
+
+    private var _numberOfOptions by mutableIntStateOf(initialNumberOfOptions)
+    var numberOfOptions: Int
+        get() = _numberOfOptions
+        set(newNumberOfOptions) {
+            verifyNumberOfOptions(newNumberOfOptions)
+
+            optionsOffset =
+                positiveModulo(
+                    selectedOption.coerceAtMost(newNumberOfOptions - 1) - lazyListState.centerItemIndex(),
+                    newNumberOfOptions,
+                )
+
+            _numberOfOptions = newNumberOfOptions
+        }
+
+    internal var optionsOffset = 0
+
+    val selectedOption: Int
+        get() = (lazyListState.centerItemIndex() + optionsOffset) % numberOfOptions
+
+    val numberOfItems = LARGE_NUMBER_OF_ITEMS
+
+    internal val lazyListState =
+        run {
+            val repeats = LARGE_NUMBER_OF_ITEMS / numberOfOptions
+            val centerOffset = numberOfOptions * (repeats / 2)
+
+            LazyListState(
+                firstVisibleItemIndex = centerOffset + initiallySelectedOption,
+                firstVisibleItemScrollOffset = 0,
+            )
+        }
+
+    override val isScrollInProgress: Boolean
+        get() = lazyListState.isScrollInProgress
+
+    override val canScrollForward: Boolean
+        get() = lazyListState.canScrollForward
+
+    override val canScrollBackward: Boolean
+        get() = lazyListState.canScrollBackward
+
+    override suspend fun scroll(
+        scrollPriority: MutatePriority,
+        block: suspend ScrollScope.() -> Unit,
+    ) {
+        lazyListState.scroll(scrollPriority, block)
+    }
+
+    override fun dispatchRawDelta(delta: Float): Float = lazyListState.dispatchRawDelta(delta)
+
+    suspend fun scrollToOption(index: Int) {
+        lazyListState.scrollToItem(index = getClosestTargetItemIndex(index))
+    }
+
+    suspend fun animateScrollToOption(index: Int) {
+        lazyListState.animateScrollToItem(index = getClosestTargetItemIndex(index))
+    }
+
+    private fun getClosestTargetItemIndex(option: Int): Int {
+        val stepsPrev = positiveModulo(selectedOption - option, numberOfOptions)
+        val stepsNext = positiveModulo(option - selectedOption, numberOfOptions)
+        return lazyListState.centerItemIndex() +
+            if (stepsPrev <= stepsNext) -stepsPrev else stepsNext
+    }
+
+    private fun verifyNumberOfOptions(numberOfOptions: Int) {
+        require(numberOfOptions > 0) { "The picker should have at least one item." }
+        require(numberOfOptions < LARGE_NUMBER_OF_ITEMS / 3) {
+            // Set an upper limit to ensure there are at least 3 repeats of all the options
+            "The picker should have less than ${LARGE_NUMBER_OF_ITEMS / 3} items"
+        }
+    }
+
+    companion object {
+        val Saver: Saver<WheelPickerState, Any> =
+            listSaver<WheelPickerState, Any?>(
+                save = { listOf(it.numberOfOptions, it.selectedOption) },
+                restore = { saved ->
+                    WheelPickerState(
+                        initialNumberOfOptions = saved[0] as Int,
+                        initiallySelectedOption = saved[1] as Int,
+                    )
+                },
+            )
+    }
+}
+
+private fun positiveModulo(
+    n: Int,
+    mod: Int,
+): Int {
+    require(mod > 0)
+    return ((n % mod) + mod) % mod
 }
 
 @Preview(showBackground = true)
 @Composable
 private fun BasicSnapWheelPreview() {
     CalMongTheme {
+        val items = List(100) { it.toString() }
+        val state = rememberWheelPickerState(items.size, 0)
         BasicSnapWheel(
-            items = List(100) { it.toString() },
+            state = state,
             modifier = Modifier.fillMaxWidth(),
+            optionContent = {
+                Text(items[it])
+            },
         )
     }
 }

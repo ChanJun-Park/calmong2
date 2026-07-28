@@ -9,13 +9,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.material3.Text
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.jingom.calmong.core.designsystem.theme.CalMongTheme
 import com.jingom.calmong.core.ui.picker.BasicSnapWheel
+import com.jingom.calmong.core.ui.picker.rememberWheelPickerState
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -30,15 +28,18 @@ class MainActivity : ComponentActivity() {
                             .systemBarsPadding(),
                 ) {
                     val items = remember { List(31) { it.toString() } }
-                    var centerItemIndex by remember { mutableIntStateOf(0) }
+                    val state = rememberWheelPickerState(items.size, 0)
+
                     Text(
-                        text = "center item : ${items[centerItemIndex.coerceIn(0, items.lastIndex)]}",
+                        text = "center item : ${items[state.selectedOption]}",
                     )
                     BasicSnapWheel(
-                        items = items,
+                        state = state,
                         visibleItemCount = 5,
-                        onCenterItemIndexChange = { centerItemIndex = it },
                         modifier = Modifier.fillMaxWidth(),
+                        optionContent = {
+                            Text(items[it])
+                        },
                     )
                 }
             }
