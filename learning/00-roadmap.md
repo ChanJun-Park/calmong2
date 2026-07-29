@@ -30,8 +30,8 @@ Wear Picker는 `ScalingLazyColumn`, `RotarySnapLayoutInfoProvider` 등 **Wear OS
 1. **[완료]** **스냅 스크롤 뼈대** — `LazyColumn` + `snapFlingBehavior`로 중앙 스냅되는 리스트 하나 만들기. ([`step-01-basic-snap-list.md`](./step-01-basic-snap-list.md)) — `core/ui`의 `BasicSnapWheel.kt`로 구현 완료. decay 커스터마이징은 레벨 1(파라미터 튜닝) 선에서 충분하다고 판단하고 다음 단계로.
 2. **[완료]** **선택값 추출** — 뷰포트 중앙에 있는 아이템의 인덱스를 상태로 뽑아내기 (`ScalingLazyListState.centerItemIndex`에 해당하는 것을 `LazyListState.layoutInfo`로 직접 계산). ([`step-02-center-item-index.md`](./step-02-center-item-index.md))
 3. **[완료]** **무한 순환 매핑** — `LARGE_NUMBER_OF_ITEMS` + 모듈로 매핑 트릭으로 무한 스크롤 흉내내기 (`PickerState.kt:594-727` 분석 기반). ([`step-03-infinite-loop-mapping.md`](./step-03-infinite-loop-mapping.md))
-4. **[진행중] 상태 호이스팅 + 복원** — `PickerState : ScrollableState` + `rememberSaveable`/`Saver`로 재사용 가능한 상태 클래스(`WheelPickerState`) 만들기, `scrollToOption`/`animateScrollToOption` 구현. ([`step-04-state-hoisting.md`](./step-04-state-hoisting.md))
-5. **시각 효과** — 상하 그라데이션(`drawWithContent`+`Brush`), 중앙 하이라이트, 거리 기반 스케일/알파(오프스크린 컴포지팅 포함).
+4. **[완료]** **상태 호이스팅 + 복원** — `PickerState : ScrollableState` + `rememberSaveable`/`Saver`로 재사용 가능한 상태 클래스(`WheelPickerState`) 만들기, `scrollToOption`/`animateScrollToOption` 구현. ([`step-04-state-hoisting.md`](./step-04-state-hoisting.md)) — `optionContent` 람다로 일반화해서 `items`와 `state`의 불일치 문제를 구조적으로 제거.
+5. **[완료]** **시각 효과** — 상하 그라데이션(`drawWithContent`+`Brush`), 중앙 하이라이트, 거리 기반 스케일/알파. ([`step-05-visual-effects.md`](./step-05-visual-effects.md)) — 오프스크린 컴포지팅은 우리 구조(행 안에서만 축소, 이웃과 안 겹침)엔 불필요하다고 판단해 생략.
 6. **플링/스냅 커브 튜닝(선택)** — 기본 `rememberSnapFlingBehavior`로 충분한지 판단하고, 필요하면 `ScalingLazyColumnSnapFlingBehavior`의 decay+cubic-bezier 이어붙이기 기법을 직접 구현.
 7. **접근성** — `clearAndSetSemantics`로 스크린리더 지원 (선택 값 읽기, 인덱스로 점프).
 8. **조합 및 완성** — 년/월/일(또는 시/분) 피커를 묶어 실제 날짜/시간 선택 컴포넌트로 완성.
