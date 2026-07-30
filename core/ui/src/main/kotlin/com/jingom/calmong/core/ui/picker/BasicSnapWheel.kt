@@ -1,17 +1,10 @@
 package com.jingom.calmong.core.ui.picker
 
 import androidx.annotation.IntRange
-import androidx.compose.animation.core.DecayAnimationSpec
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.exponentialDecay
-import androidx.compose.animation.core.spring
-import androidx.compose.animation.rememberSplineBasedDecay
 import androidx.compose.foundation.MutatePriority
+import androidx.compose.foundation.gestures.FlingBehavior
 import androidx.compose.foundation.gestures.ScrollScope
 import androidx.compose.foundation.gestures.ScrollableState
-import androidx.compose.foundation.gestures.TargetedFlingBehavior
-import androidx.compose.foundation.gestures.snapping.SnapPosition
-import androidx.compose.foundation.gestures.snapping.snapFlingBehavior
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.PaddingValues
@@ -40,7 +33,6 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -174,25 +166,12 @@ fun Modifier.wheelItemScaling(
         }
 
 @Composable
-private fun rememberCustomSnapFlingBehavior(lazyListState: LazyListState): TargetedFlingBehavior {
-    val snappingLayout = remember(lazyListState) { CustomSnapLayoutInfoProvider(lazyListState, SnapPosition.Center) }
-    val density = LocalDensity.current
-    val highVelocityApproachSpec: DecayAnimationSpec<Float> = rememberSplineBasedDecay()
-
-    return remember(snappingLayout, highVelocityApproachSpec, density) {
-        snapFlingBehavior(
-            snapLayoutInfoProvider = snappingLayout,
-            decayAnimationSpec =
-                exponentialDecay(
-                    frictionMultiplier = 0.5f, // 올릴수록 빨리 멈춤(짧게 튕김), 내릴수록 오래 미끄러짐
-                    absVelocityThreshold = 0.1f, // 이 속도 밑으로 떨어지면 "멈췄다"고 판단
-                ),
-            snapAnimationSpec = spring(stiffness = Spring.StiffnessLow),
-        )
+private fun rememberCustomSnapFlingBehavior(lazyListState: LazyListState): FlingBehavior =
+    remember(lazyListState) {
+        customSnapFlingBehavior(lazyListState)
     }
-}
 
-private fun LazyListState.centerItemIndex(): Int {
+internal fun LazyListState.centerItemIndex(): Int {
     val viewPortCenterOffset = layoutInfo.viewportSize.height.toFloat() / 2 + layoutInfo.viewportStartOffset
     val centerIndex =
         layoutInfo
