@@ -33,7 +33,7 @@ Wear Picker는 `ScalingLazyColumn`, `RotarySnapLayoutInfoProvider` 등 **Wear OS
 4. **[완료]** **상태 호이스팅 + 복원** — `PickerState : ScrollableState` + `rememberSaveable`/`Saver`로 재사용 가능한 상태 클래스(`WheelPickerState`) 만들기, `scrollToOption`/`animateScrollToOption` 구현. ([`step-04-state-hoisting.md`](./step-04-state-hoisting.md)) — `optionContent` 람다로 일반화해서 `items`와 `state`의 불일치 문제를 구조적으로 제거.
 5. **[완료]** **시각 효과** — 상하 그라데이션(`drawWithContent`+`Brush`), 중앙 하이라이트, 거리 기반 스케일/알파. ([`step-05-visual-effects.md`](./step-05-visual-effects.md)) — 오프스크린 컴포지팅은 우리 구조(행 안에서만 축소, 이웃과 안 겹침)엔 불필요하다고 판단해 생략.
 6. **[진행중] 플링/스냅 커브 튜닝(선택)** — 지금 쓰는 2단계 `snapFlingBehavior`에 이음매가 느껴지는지 먼저 확인하고, 필요하면 `ScalingLazyColumnSnapFlingBehavior`의 decay+cubic-bezier 이어붙이기 기법을 직접 구현. ([`step-06-fling-snap-curve.md`](./step-06-fling-snap-curve.md))
-7. **접근성** — `clearAndSetSemantics`로 스크린리더 지원 (선택 값 읽기, 인덱스로 점프).
+7. **[진행중] 접근성** — TalkBack 지원. Wear의 `clearAndSetSemantics`+`scrollToIndex` 대신, 폰 네이티브 관용구인 `progressBarRangeInfo`+`setProgress`+`stateDescription`(Material3 `Slider`가 쓰는 패턴)로 "조정 가능한 값 컨트롤"로 노출. ([`step-07-accessibility.md`](./step-07-accessibility.md))
 8. **조합 및 완성** — 년/월/일(또는 시/분) 피커를 묶어 실제 날짜/시간 선택 컴포넌트로 완성.
 
 ## 참고 소스 (전체 출처는 각 폴더의 README 참고)
