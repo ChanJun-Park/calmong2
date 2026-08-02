@@ -20,22 +20,22 @@ import kotlin.math.sqrt
 
 fun customSnapFlingBehavior(
     lazyListState: LazyListState,
+    lastDraggingStartCenterIndexProvider: () -> Int?,
     snapOffset: Int = 0,
     decay: DecayAnimationSpec<Float> = exponentialDecay(),
-    haveItemChanged: () -> Boolean = { false },
 ): FlingBehavior =
     CustomSnapFlingBehavior(
         lazyListState,
+        lastDraggingStartCenterIndexProvider,
         snapOffset,
         decay,
-        haveItemChanged,
     )
 
 class CustomSnapFlingBehavior(
     val lazyListState: LazyListState,
+    val lastDraggingStartCenterIndexProvider: () -> Int?,
     val snapOffset: Int = 0,
     val decay: DecayAnimationSpec<Float> = exponentialDecay(),
-    val haveItemChanged: () -> Boolean = { false },
 ) : FlingBehavior {
     override suspend fun ScrollScope.performFling(initialVelocity: Float): Float {
         val animationState = AnimationState(initialValue = 0f, initialVelocity = initialVelocity)
@@ -68,36 +68,37 @@ class CustomSnapFlingBehavior(
                     // We couldn't scroll as much as we wanted, likely we reached the end of the
                     // list,
                     // Snap to the current item and finish.
-                    scrollBy((lazyListState.centerItemScrollOffset - snapOffset).toFloat())
+                    scrollBy((lazyListState.centerItemScrollOffset + snapOffset).toFloat())
                     return animationState.velocity
                 } else {
+                    val currentCenterItemIndex = lazyListState.centerItemIndex()
+                    val itemChanged = lastDraggingStartCenterIndexProvider() != currentCenterItemIndex
+
                     // Now that scrolling slowed down, adjust the animation to land in the item
                     // closest
                     // to the original target. Note that the target may be off-screen, in that case
                     // we
                     // will land on the last visible item in that direction.
                     lazyListState.layoutInfo.visibleItemsInfo
-                        .fastMap { animationState.value + it.offset + snapOffset }
-                        .fastMinByOrNull { abs(it - decayTarget) } ?: decayTarget
+                        .fastMap {
+                            if (!itemChanged && it.index == currentCenterItemIndex) {
+                                Float.MAX_VALUE
+                            } else {
+                                animationState.value + it.offset + snapOffset
+                            }
+                        }.fastMinByOrNull {
+                            abs(it - decayTarget)
+                        } ?: decayTarget
                 }
             } else {
-                (lazyListState.centerItemScrollOffset - snapOffset).toFloat()
-//                if (haveItemChanged() || visibleItemsInfo.size <= 1) {
-//                    // Not a fling, just snap to the current item.
-//                    (lazyListState.centerItemScrollOffset - snapOffset).toFloat()
-//                } else {
-//                    val firstVisibleItemLayoutInfo =
-//                        lazyListState
-//                            .layoutInfo
-//                            .visibleItemsInfo
-//                            .first()
-//
-//                    if (lazyListState.lastScrolledForward) {
-//                        (firstVisibleItemLayoutInfo.size + firstVisibleItemLayoutInfo.offset).toFloat()
-//                    } else {
-//                        firstVisibleItemLayoutInfo.offset.toFloat()
-//                    }
-//                }
+                val currentCenterItemIndex = lazyListState.centerItemIndex()
+                val itemChanged = lastDraggingStartCenterIndexProvider() != currentCenterItemIndex
+
+                if (itemChanged) {
+                    (lazyListState.centerItemScrollOffset + snapOffset).toFloat()
+                } else {
+                    (lazyListState.nextItemScrollOffset + snapOffset).toFloat()
+                }
             }
 
         // We have a velocity (animationState.velocity), and a target (finalTarget),
@@ -175,4 +176,24 @@ private val LazyListState.centerItemScrollOffset: Int
                 } ?: 0
 
         return (centerItemCenterOffset - viewPortCenterOffset).toInt()
+    }
+
+private val LazyListState.nextItemScrollOffset: Int
+    get() {
+        val viewPortCenterOffset = layoutInfo.viewportSize.height.toFloat() / 2 + layoutInfo.viewportStartOffset
+        val currentCenterItemIndex = centerItemIndex()
+        val nextItemIndex =
+            if (lastScrolledBackward) {
+                currentCenterItemIndex - 1
+            } else {
+                currentCenterItemIndex + 1
+            }
+
+        val nextItemInfoLayoutInfo =
+            layoutInfo
+                .visibleItemsInfo
+                .find { it.index == nextItemIndex }
+                ?: return 0
+
+        return (nextItemInfoLayoutInfo.offset + nextItemInfoLayoutInfo.size / 2 - viewPortCenterOffset).toInt()
     }

@@ -5,6 +5,7 @@ import androidx.compose.foundation.MutatePriority
 import androidx.compose.foundation.gestures.FlingBehavior
 import androidx.compose.foundation.gestures.ScrollScope
 import androidx.compose.foundation.gestures.ScrollableState
+import androidx.compose.foundation.interaction.DragInteraction
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.PaddingValues
@@ -20,7 +21,7 @@ import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.Saver
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -38,6 +39,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.lerp
 import com.jingom.calmong.core.designsystem.theme.CalMongTheme
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 import kotlin.math.abs
 import kotlin.math.absoluteValue
 
@@ -57,7 +60,11 @@ fun BasicSnapWheel(
 
     LazyColumn(
         state = state.lazyListState,
-        flingBehavior = rememberCustomSnapFlingBehavior(state.lazyListState),
+        flingBehavior =
+            rememberCustomSnapFlingBehavior(
+                state.lazyListState,
+                state::lastDraggingStartCenterIndex,
+            ),
         contentPadding = PaddingValues(vertical = verticalContentPadding),
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = modifier.basicSnapWheelModifier(wheelHeight, itemHeightWithPadding, gradientColor),
@@ -166,9 +173,12 @@ fun Modifier.wheelItemScaling(
         }
 
 @Composable
-private fun rememberCustomSnapFlingBehavior(lazyListState: LazyListState): FlingBehavior =
-    remember(lazyListState) {
-        customSnapFlingBehavior(lazyListState)
+private fun rememberCustomSnapFlingBehavior(
+    lazyListState: LazyListState,
+    lastDraggingStartCenterIndexProvider: () -> Int?,
+): FlingBehavior =
+    remember(lazyListState, lastDraggingStartCenterIndexProvider) {
+        customSnapFlingBehavior(lazyListState, lastDraggingStartCenterIndexProvider)
     }
 
 internal fun LazyListState.centerItemIndex(): Int {
@@ -216,22 +226,40 @@ private fun LazyListState.distanceFromViewPortCenter(itemIndex: Int): Float {
 fun rememberWheelPickerState(
     initialNumberOfOptions: Int,
     initiallySelectedOption: Int = 0,
-): WheelPickerState =
-    rememberSaveable(
+): WheelPickerState {
+    val coroutineScope = rememberCoroutineScope()
+    return rememberSaveable(
         inputs = arrayOf(initialNumberOfOptions, initiallySelectedOption),
-        saver = WheelPickerState.Saver,
+        saver =
+            listSaver<WheelPickerState, Any?>(
+                save = { listOf(it.numberOfOptions, it.selectedOption) },
+                restore = { saved ->
+                    WheelPickerState(
+                        initialNumberOfOptions = saved[0] as Int,
+                        initiallySelectedOption = saved[1] as Int,
+                        coroutineScope = coroutineScope,
+                    )
+                },
+            ),
     ) {
-        WheelPickerState(initialNumberOfOptions, initiallySelectedOption)
+        WheelPickerState(
+            initialNumberOfOptions,
+            initiallySelectedOption,
+            coroutineScope,
+        )
     }
+}
 
 @Stable
 class WheelPickerState(
     @IntRange(from = 1)
     initialNumberOfOptions: Int,
     initiallySelectedOption: Int = 0,
+    private val coroutineScope: CoroutineScope,
 ) : ScrollableState {
     init {
         verifyNumberOfOptions(initialNumberOfOptions)
+        collectLastCustomFlingContext()
     }
 
     private var _numberOfOptions by mutableIntStateOf(initialNumberOfOptions)
@@ -308,17 +336,17 @@ class WheelPickerState(
         }
     }
 
-    companion object {
-        val Saver: Saver<WheelPickerState, Any> =
-            listSaver<WheelPickerState, Any?>(
-                save = { listOf(it.numberOfOptions, it.selectedOption) },
-                restore = { saved ->
-                    WheelPickerState(
-                        initialNumberOfOptions = saved[0] as Int,
-                        initiallySelectedOption = saved[1] as Int,
-                    )
-                },
-            )
+    var lastDraggingStartCenterIndex: Int? = null
+        private set
+
+    private fun collectLastCustomFlingContext() {
+        coroutineScope.launch {
+            lazyListState.interactionSource.interactions.collect {
+                if (it !is DragInteraction.Start) return@collect
+
+                lastDraggingStartCenterIndex = lazyListState.centerItemIndex()
+            }
+        }
     }
 }
 
