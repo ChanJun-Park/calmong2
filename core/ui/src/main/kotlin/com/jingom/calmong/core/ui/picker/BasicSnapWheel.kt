@@ -34,6 +34,9 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.semantics.CollectionInfo
+import androidx.compose.ui.semantics.collectionInfo
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -67,7 +70,12 @@ fun BasicSnapWheel(
             ),
         contentPadding = PaddingValues(vertical = verticalContentPadding),
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = modifier.basicSnapWheelModifier(wheelHeight, itemHeightWithPadding, gradientColor),
+        modifier =
+            modifier
+                .basicSnapWheelModifier(wheelHeight, itemHeightWithPadding, gradientColor)
+                .semantics {
+                    collectionInfo = CollectionInfo(state.numberOfOptions, 1)
+                },
     ) {
         items(
             count = state.numberOfItems,
